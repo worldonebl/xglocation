@@ -981,6 +981,12 @@ html.dark #search-results::-webkit-scrollbar-thumb {
   <div class="layer-item" data-layer="esri" id="layer-esri">
     国际卫星<span class="check">✓</span>
   </div>
+  <div class="layer-item" data-layer="gmap" id="layer-gmap">
+    谷歌地图<span class="check">✓</span>
+  </div>
+  <div class="layer-item" data-layer="gsat" id="layer-gsat">
+    谷歌卫星<span class="check">✓</span>
+  </div>
 </div>
 
 <!-- Right: Zoom controls -->
@@ -1245,9 +1251,17 @@ function onMapMove(){
   updateFavStar();
 }
 
+/* ─── Global State ───────────────────────────────────────── */
+var currentLayer = 'amap'; // 保持默认高德，也可根据需要改为 'gmap'
+var map;
+var layers = {};
+
+/* ─── Global State ───────────────────────────────────────── */
+var currentLayer = 'amap'; // 默认设置为高德地图
+var map;
+var layers = {};
+
 /* ─── Map setup ──────────────────────────────────────────── */
-var currentLayer = 'amap'; // 核心修改：将默认图层设为高德地图
-var layers={};
 function buildLayers(){
   layers.amap=L.tileLayer(
     'https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7',
@@ -1262,11 +1276,23 @@ function buildLayers(){
   layers.esri=L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {maxZoom:19,attribution:'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'});
+  
+  // 【新增】谷歌地图（矢量）
+  layers.gmap=L.tileLayer(
+    'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    {subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20,attribution:'© Google Maps'});
+  
+  // 【新增】谷歌卫星（卫星影像 + 路线标注混合）
+  layers.gsat=L.tileLayer(
+    'https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',
+    {subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20,attribution:'© Google Satellite'});
 }
 
 function initMap(lat,lng){
   var dispLat,dispLng;
-  if(currentLayer==='osm'||currentLayer==='esri'){dispLat=lat;dispLng=lng;}
+  // 国际地图、Esri、谷歌地图、谷歌卫星使用 WGS-84 坐标系，不进行火星坐标偏移
+  var isWgs = (currentLayer==='osm'||currentLayer==='esri'||currentLayer==='gmap'||currentLayer==='gsat');
+  if(isWgs){dispLat=lat;dispLng=lng;}
   else{var g=GCJ.w2g(lat,lng);dispLat=g[0];dispLng=g[1];}
 
   map=L.map('map',{zoomControl:false,attributionControl:true});
@@ -1290,9 +1316,12 @@ function initMap(lat,lng){
 function switchLayer(name){
   if(name===currentLayer)return;
   var c=map.getCenter();
-  // Convert current display coords → WGS-84 → new display coords
-  var wgs=(currentLayer==='osm'||currentLayer==='esri')?[c.lat,c.lng]:GCJ.g2w(c.lat,c.lng);
-  var newDisp=(name==='osm'||name==='esri')?wgs:GCJ.w2g(wgs[0],wgs[1]);
+  
+  var isWgsCurrent = (currentLayer==='osm'||currentLayer==='esri'||currentLayer==='gmap'||currentLayer==='gsat');
+  var isWgsNew = (name==='osm'||name==='esri'||name==='gmap'||name==='gsat');
+
+  var wgs = isWgsCurrent ? [c.lat, c.lng] : GCJ.g2w(c.lat, c.lng);
+  var newDisp = isWgsNew ? wgs : GCJ.w2g(wgs[0], wgs[1]);
 
   map.removeLayer(layers[currentLayer]);
   currentLayer=name;
