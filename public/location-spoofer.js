@@ -27,13 +27,13 @@
   var CONFIG_DEFAULTS = {
     enabled: true,
     mode: "response",
-    latitude: 39.90872,
-    longitude: 116.39748,
+    latitude: 50.6845666,
+    longitude: -2.1218620,
     horizontalAccuracy: 39,
     verticalAccuracy: 1000,
-    altitude: 44,
+    altitude: 15,
     failOpen: true,
-    debug: false,
+    debug: true,
     rawLimit: 0
   };
 
@@ -781,24 +781,64 @@
   /* ─────────────────────────────────────────────────────────────
      8. Shadowrocket 运行时接入 (Shadowrocket Runtime Integration)
   ───────────────────────────────────────────────────────────── */
+  // function fetchRemoteConfig(url, callback) {
+  //   if (!url || typeof $httpClient === "undefined") {
+  //     callback(null);
+  //     return;
+  //   }
+  //   $httpClient.get({ url: url, timeout: 5 }, function (err, resp, data) {
+  //     if (err || !data || (resp && resp.status >= 400)) {
+  //       callback(null);
+  //       return;
+  //     }
+  //     try {
+  //       var json = JSON.parse(data);
+  //       callback(json);
+  //     } catch (e) {
+  //       callback(null);
+  //     }
+  //   });
+  // }
+
   function fetchRemoteConfig(url, callback) {
-    if (!url || typeof $httpClient === "undefined") {
-      callback(null);
+  if (!url || typeof $httpClient === "undefined") {
+    callback(null);
+    return;
+  }
+  
+  // 1. 先尝试从本地持久化存储中读取上一次成功的数据作为备用
+  var cachedData = null;
+  if (typeof $persistentStore !== "undefined") {
+    var rawCache = $persistentStore.read("SPOOFER_LAST_CONFIG");
+    if (rawCache) {
+      try { cachedData = JSON.parse(rawCache); } catch (e) {}
+    }
+  }
+
+  // 2. 发起网络请求
+  $httpClient.get({ url: url, timeout: 3 }, function (err, resp, data) {
+    if (err || !data || (resp && resp.status >= 400)) {
+      // 网络失败或超时：如果有本地缓存，直接使用缓存！零延迟，绝对不翻车
+      if (cachedData) {
+        console.log("[Location Spoofer] Network timeout/error, using local cache.");
+        callback(cachedData);
+      } else {
+        callback(null);
+      }
       return;
     }
-    $httpClient.get({ url: url, timeout: 5 }, function (err, resp, data) {
-      if (err || !data || (resp && resp.status >= 400)) {
-        callback(null);
-        return;
+    try {
+      var json = JSON.parse(data);
+      // 网络成功：立刻更新本地缓存
+      if (typeof $persistentStore !== "undefined" && json && json.latitude != null) {
+        $persistentStore.write(JSON.stringify(json), "SPOOFER_LAST_CONFIG");
       }
-      try {
-        var json = JSON.parse(data);
-        callback(json);
-      } catch (e) {
-        callback(null);
-      }
-    });
-  }
+      callback(json);
+    } catch (e) {
+      callback(cachedData); // 解析 JSON 失败时也降级使用缓存
+    }
+  });
+}
 
   function runShadowrocket() {
     var hasResponse = typeof $response !== "undefined" && $response != null;
