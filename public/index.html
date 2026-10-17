@@ -1246,6 +1246,7 @@ function onMapMove(){
 }
 
 /* ─── Map setup ──────────────────────────────────────────── */
+var currentLayer = 'amap'; // 核心修改：将默认图层设为高德地图
 var layers={};
 function buildLayers(){
   layers.amap=L.tileLayer(
