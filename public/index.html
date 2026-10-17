@@ -1245,8 +1245,12 @@ function onMapMove(){
   updateFavStar();
 }
 
+/* ─── Global State ───────────────────────────────────────── */
+var currentLayer = 'amap'; // 默认设置为高德地图
+var map;
+var layers = {};
+
 /* ─── Map setup ──────────────────────────────────────────── */
-var layers={};
 function buildLayers(){
   layers.amap=L.tileLayer(
     'https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7',
